@@ -1,1 +1,3 @@
-datasets
+fastapi
+uvicorn
+ollama-python

@@ -32,7 +32,7 @@ echo "[INFO] Selected Package Manager: '$PKG_MGR'"
 # Install Dependencies
 if [ "$PKG_MGR" == "conda" ]; then
     echo "[OK] Starting installation using Conda..."
-    conda install --file "$FILE" -y
+    conda install --file "$FILE" -c conda-forge -y
 
 elif [ "$PKG_MGR" == "pip" ]; then
     echo "[OK] Starting installation using Pip..."
@@ -42,3 +42,21 @@ else
     echo "[Error] Invalid manager '$PKG_MANAGER'. Please use 'pip' or 'conda'."
     exit 1
 fi
+
+# Check for Ollama
+echo "[INFO] Verifying Python environment binding..."
+if ! python3 -c "import ollama" &> /dev/null; then
+    echo "[WARNING] Python cannot find 'ollama'. Forcing strict inline installation..."
+    python3 -m pip install ollama
+    
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] Could not force-install Python ollama library."
+        exit 1
+    fi
+    echo "[OK] 'ollama' bound to current Python environment."
+else
+    echo "[OK] Python recognizes 'ollama'."
+fi
+
+echo "[INFO] Starting application..."
+python3 main.py
