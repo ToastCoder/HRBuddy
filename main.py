@@ -44,7 +44,7 @@ try:
         Question: {user_input}
         Answer:"""
         
-        # C. Generate the answer using TinyLlama
+        # Generate the answer using TinyLlama
         response = ollama.chat(model='tinyllama', messages=[
             {'role': 'user', 'content': rag_prompt}
         ])
