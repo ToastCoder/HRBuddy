@@ -1,3 +1,9 @@
 fastapi
 uvicorn
-ollama-python
+ollama
+chromadb
+langchain
+langchain-community
+pypdf
+langchain-text-splitters
+langchain-ollama

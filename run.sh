@@ -46,7 +46,7 @@ fi
 # Check for Ollama
 echo "[INFO] Verifying Python environment binding..."
 if ! python3 -c "import ollama" &> /dev/null; then
-    echo "[WARNING] Python cannot find 'ollama'. Forcing strict inline installation..."
+    echo "[WARNING] Python cannot find 'ollama' library. Forcing strict inline installation..."
     python3 -m pip install ollama
     
     if [ $? -ne 0 ]; then
@@ -58,5 +58,27 @@ else
     echo "[OK] Python recognizes 'ollama'."
 fi
 
-echo "[INFO] Starting application..."
+# System Ollama Engine Check and Install
+echo "[INFO] Checking system Ollama engine..."
+if ! command -v ollama &> /dev/null; then
+    echo "[WARNING] Ollama engine not found. Installing now (may require password)..."
+    curl -fsSL https://ollama.com/install.sh | sh
+    
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] Ollama engine installation failed."
+        exit 1
+    fi
+    echo "[OK] Ollama engine installed successfully."
+else
+    echo "[OK] Ollama engine is already installed."
+fi
+
+# Required Models for RAG
+echo "[INFO] Verifying AI models (TinyLlama & Nomic)..."
+ollama pull tinyllama
+ollama pull nomic-embed-text
+echo "[OK] All models are ready."
+
+# Start Application
+echo "[INFO] Starting RAG application..."
 python3 main.py
