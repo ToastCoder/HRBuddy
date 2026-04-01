@@ -6,101 +6,127 @@ from langchain_ollama import OllamaEmbeddings
 from pymongo import MongoClient
 import datetime
 import ollama
+import streamlit as st
 
-# MongoDB Setup
-print("[INFO] Connecting to MongoDB...")
-try:
+# Streamlit webpage Setup
+st.set_page_config(page_title="HR Buddy", page_icon="🤖")
+st.title("HR Policy Assistant")
+
+# Cached Setup for loading model and the database
+# Runs only once
+
+@st.cache_resource
+def initialize_backend():
+
+    print("\n[INFO] Booting up HR Buddy Server...")
+    
     # Connecting to default local MongoDB Port
-    mongo_client = MongoClient("mongodb://localhost:27017/", serverSelectionTimeoutMS=2000)
+    print("[INFO] Connecting to local MongoDB...")
+    client = MongoClient("mongodb://localhost:27017/")
 
-    # Forcing a connection test
-    mongo_client.server_info()
-    db = mongo_client["hr_assistant"]
+    # Retrieve Memory Database
+    db = client["hr_assistant"]
     chat_collection = db["chat_history"]
-    print("[OK] Connected to MongoDB!")
-except Exception as e:
-    print("[ERROR] Could not connect to MongoDB. Is the server running?")
-    exit(1)
+    
+    # Load and Chunk the Data
+    print("[INFO] Reading HR Policy PDF with PyMuPDF...")
+    loader = PyMuPDFLoader("rag_source/nasscom-hr-manual-2016.pdf") 
+    pages = loader.load()
 
-# Dynamic Session ID for handling users and their past questions
-print("\nWelcome to HR Buddy")
-SESSION_ID = input("Please enter your name to login: ").strip()
+    # Break the dense PDF into small, 1000-character chunks
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+    chunks = text_splitter.split_documents(pages)
+    
+    print(f"[INFO] PDF chunked successfully into {len(chunks)} segments.")
+    print("[INFO] Initializing vector embeddings. This might take a second...")
 
-# Fallback support as a guest session
-if not SESSION_ID:
-    SESSION_ID = "guest_user"
-    print("[INFO] No name provided. Logging in as 'guest_user'.")
-else:
-    print(f"[INFO] Hello, {SESSION_ID}! Fetching your records...")
+    # Embed and Store in Vector DB
+    embeddings = OllamaEmbeddings(model="nomic-embed-text")
+    vectorstore = Chroma.from_documents(documents=chunks, embedding=embeddings)
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
+    
+    print("[SUCCESS] System is live and ready for users!\n")
+    return chat_collection, retriever
 
+chat_collection, retriever = initialize_backend()
 
-# Load and Chunk the Data
-print("[INFO] Reading HR Policy PDF...")
-loader = PyMuPDFLoader("rag_source/nasscom-hr-manual-2016.pdf") 
-pages = loader.load()
+# User login
+SESSION_ID = st.sidebar.text_input("Enter your name to login:", value="guest_user")
 
-# Break the dense PDF into small, 500-character chunks
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
-chunks = text_splitter.split_documents(pages)
+# Fetch chat history for the UI
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# Embed and Store in Vector DB
-print(f"[INFO] Chunking complete. Found {len(chunks)} text chunks.")
-print("[INFO] Sending chunks to Ollama to create embeddings...")
-# fast, local nomic model to turn text into math
-embeddings = OllamaEmbeddings(model="nomic-embed-text")
-vectorstore = Chroma.from_documents(documents=chunks, embedding=embeddings)
+    # Pull previous messages from MongoDB to show on screen
+    past_db_msgs = chat_collection.find({"session_id": SESSION_ID}).sort("timestamp", 1)
+    for msg in past_db_msgs:
+        st.session_state.messages.append({
+            "role": "user" if msg["role"] == "User" else "assistant", 
+            "content": msg["content"]
+        })
 
-# Retriever to fetch the top 3 most relevant chunks
-retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
+# Display all messages on the screen
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-print("\n\nHi there! (Press Ctrl+C to exit)")
+if user_input := st.chat_input("Ask a question about HR policies..."):
 
-# Infinite Loop for Model Input to Output
-try:
-    while True:
-        user_input = input("\n:> ")
-        
-        # Get last 10 messages from the user
-        past_messages_cursor = chat_collection.find({"session_id": SESSION_ID}).sort("timestamp", -1).limit(10)
+    # Print log about chat on terminal
+    print(f"\n[USER:{SESSION_ID}] New question received: '{user_input}'")
 
-        # Convert cursor to list and reverse for reading it from start to end
-        past_messages = list(past_messages_cursor)[::-1]
-        history_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in past_messages])
+    # Show user message immediately
+    with st.chat_message("user"):
+        st.markdown(user_input)
+    st.session_state.messages.append({"role": "user", "content": user_input})
 
-        # Semantic Search: Find the relevant policy paragraphs from the RAG source
-        docs = retriever.invoke(user_input)
-        context_block = "\n\n".join([doc.page_content for doc in docs])
-        
-        # Construct the Prompt with Attention
-        # Custom RAG Prompt to only use resources from the rag source
-        rag_prompt = f"""You are a precise HR assistant. 
-        Read the provided Context carefully. You must answer the user's question using ONLY the facts found in the Context below. 
-        
-        If the Context does not contain the exact answer, simply reply: "I cannot find the answer to that in the current policy."
-        
-        --- PAST CONVERSATION MEMORY ---
-        {history_text}
-        
-        --- CURRENT HR CONTEXT --- 
-        {context_block}
-        
-        --- CURRENT QUESTION ---
-        Question: {user_input}
-        Answer:"""
-        
+    # Prepare Context & History
+    print(f"[SYSTEM] Fetching RAG context and database memory for {SESSION_ID}...")
+
+    # Semantic Search: Find the relevant policy paragraphs from the RAG source
+    docs = retriever.invoke(user_input)
+    context_block = "\n\n".join([doc.page_content for doc in docs])
+    
+    # Get last 10 messages from the user
+    past_messages = chat_collection.find({"session_id": SESSION_ID}).sort("timestamp", -1).limit(10)
+
+    # Convert cursor to list and reverse for reading it from start to end
+    history_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in list(past_messages)[::-1]])
+    
+    # Construct the Prompt with Attention
+    # Custom RAG Prompt to only use resources from the rag source
+    rag_prompt = f"""You are a helpful, polite, and precise HR assistant. You are currently speaking with an employee named {SESSION_ID}.
+    
+    RULES:
+    1. For greetings, casual conversation, or identity questions, respond naturally.
+    2. For ANY question regarding company policy, you MUST answer using ONLY the facts found in the Context below.
+    3. If the exact answer is not in the Context, reply: "I cannot find the answer to that in the current policy."
+    
+    --- PAST MEMORY ---
+    {history_text}
+    
+    --- HR CONTEXT --- 
+    {context_block}
+    
+    Question: {user_input}
+    Answer:"""
+
+    # Generate and show AI response
+    print("[SYSTEM] Sending prompt to Llama 3.2...")
+    with st.chat_message("assistant"):
+
         # Generate the answer using Llama 3.2
-        response = ollama.chat(model='llama3.2', messages=[
-            {'role': 'user', 'content': rag_prompt}
-        ])
-        
+        response = ollama.chat(model='llama3.2', messages=[{'role': 'user', 'content': rag_prompt}])
         ai_answer = response['message']['content']
-        print(f"\nAI: {ai_answer}")
-
-        chat_collection.insert_many([
-            {"session_id": SESSION_ID, "role": "User", "content": user_input, "timestamp": datetime.datetime.now(datetime.timezone.utc)},
-            {"session_id": SESSION_ID, "role": "AI", "content": ai_answer, "timestamp": datetime.datetime.now(datetime.timezone.utc)}
-        ])
-
-except KeyboardInterrupt:
-    print("\n\n[INFO] Closing Chat.")
-
+        st.markdown(ai_answer)
+        
+    st.session_state.messages.append({"role": "assistant", "content": ai_answer})
+    
+    # Save to MongoDB
+    chat_collection.insert_many([
+        {"session_id": SESSION_ID, "role": "User", "content": user_input, "timestamp": datetime.datetime.now(datetime.timezone.utc)},
+        {"session_id": SESSION_ID, "role": "AI", "content": ai_answer, "timestamp": datetime.datetime.now(datetime.timezone.utc)}
+    ])
+    
+    # Terminal Log after AI gives output
+    print(f"[SUCCESS] AI responded and conversation saved to MongoDB for {SESSION_ID}.")
