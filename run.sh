@@ -85,6 +85,10 @@ else
     echo "[OK] Python recognizes 'pymupdf'."
 fi
 
+# Check and configure MongoDB
+chmod +x scripts/mongodb_cfg.sh
+./scripts/mongodb_cfg.sh
+
 # Required Models for RAG
 echo "[INFO] Verifying AI models (Llama3.2 & Nomic)..."
 ollama pull llama3.2
