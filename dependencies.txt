@@ -9,3 +9,5 @@ langchain-ollama
 pymupdf
 protobuf==3.20.3
 pymongo
+streamlit
+torchvision
