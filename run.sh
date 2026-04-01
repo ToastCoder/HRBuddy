@@ -97,4 +97,4 @@ echo "[OK] All models are ready."
 
 # Start Application
 echo "[INFO] Starting RAG application..."
-python3 main.py
+streamlit run main.py
