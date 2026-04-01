@@ -4,6 +4,7 @@ ollama
 chromadb
 langchain
 langchain-community
-pypdf
 langchain-text-splitters
 langchain-ollama
+pymupdf
+protobuf==3.20.3

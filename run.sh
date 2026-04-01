@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Variables
 PKG_MGR="pip"
 FILE="dependencies.txt"
@@ -73,9 +71,23 @@ else
     echo "[OK] Ollama engine is already installed."
 fi
 
+# Check for PyMuPDF
+if ! python3 -c "import pymupdf" &> /dev/null; then
+    echo "[WARNING] Python cannot find 'pymupdf' library. Forcing strict inline installation..."
+    python3 -m pip install pymupdf
+    
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] Could not force-install Python pymupdf library."
+        exit 1
+    fi
+    echo "[OK] 'pymupdf' bound to current Python environment."
+else
+    echo "[OK] Python recognizes 'pymupdf'."
+fi
+
 # Required Models for RAG
-echo "[INFO] Verifying AI models (TinyLlama & Nomic)..."
-ollama pull tinyllama
+echo "[INFO] Verifying AI models (Llama3.2 & Nomic)..."
+ollama pull llama3.2
 ollama pull nomic-embed-text
 echo "[OK] All models are ready."
 
