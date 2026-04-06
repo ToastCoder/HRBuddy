@@ -7,6 +7,7 @@ from pymongo import MongoClient
 import datetime
 import ollama
 import streamlit as st
+import hashlib
 
 # Streamlit webpage Setup
 st.set_page_config(page_title="HR Buddy", page_icon="🤖")
@@ -27,6 +28,7 @@ def initialize_backend():
     # Retrieve Memory Database
     db = client["hr_assistant"]
     chat_collection = db["chat_history"]
+    users_collection = db["users"]
     
     # Load and Chunk the Data
     print("[INFO] Reading HR Policy PDF with PyMuPDF...")
@@ -46,13 +48,61 @@ def initialize_backend():
     retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
     
     print("[SUCCESS] System is live and ready for users!\n")
-    return chat_collection, retriever
+    return chat_collection, retriever, users_collection
 
-chat_collection, retriever = initialize_backend()
+chat_collection, retriever, users_collection = initialize_backend()
 
 # User login
-SESSION_ID = st.sidebar.text_input("Enter your name to login:", value="guest_user")
+# Set up empty variables in Streamlit's memory
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.session_id = ""
 
+if not st.session_state.logged_in:
+    st.sidebar.subheader("🔒 Login or Register")
+    username_input = st.sidebar.text_input("Username:")
+    password_input = st.sidebar.text_input("Password:", type="password") 
+    
+    if st.sidebar.button("Enter"):
+        if username_input and password_input:
+            # Scramble the password into a secure hash
+            pwd_hash = hashlib.sha256(password_input.encode()).hexdigest()
+            
+            # Look for the user in MongoDB
+            user_record = users_collection.find_one({"username": username_input})
+            
+            if user_record:
+                # User exists: Check if hashes match
+                if user_record["password_hash"] == pwd_hash:
+                    st.session_state.logged_in = True
+                    st.session_state.session_id = username_input
+                    st.rerun() 
+                    
+                else:
+                    st.sidebar.error("Incorrect password!")
+            else:
+                # 4. User does not exist: Register them silently
+                users_collection.insert_one({"username": username_input, "password_hash": pwd_hash})
+                st.sidebar.success("New account created!")
+                st.session_state.logged_in = True
+                st.session_state.session_id = username_input
+                st.rerun()
+        else:
+            st.sidebar.warning("Please enter both username and password.")
+            
+    
+    st.stop() 
+
+else:
+    # If we get here, the user is successfully logged in!
+    SESSION_ID = st.session_state.session_id
+    st.sidebar.success(f"Logged in as: **{SESSION_ID}**")
+    
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
+
+# If - Login is successful
 # Fetch chat history for the UI
 if "messages" not in st.session_state:
     st.session_state.messages = []
