@@ -4,4 +4,4 @@ HR Buddy is an application which is inspired by HR Chatbot portals. Uses combina
 
 The whole architecture is explain with the below picture.
 
-![Architecture](media/wiki/Flowchart_v1.2.png)
+![Architecture](media/wiki/Flowchart_v1.3.png)
