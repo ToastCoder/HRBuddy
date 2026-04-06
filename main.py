@@ -1,3 +1,13 @@
+import os
+import warnings
+
+# Ignore Transformer Warnings
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# Catch any leftover Python-level warnings
+warnings.filterwarnings("ignore")
+
 # Required Libs
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
