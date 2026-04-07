@@ -1,0 +1,23 @@
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: hr_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db 
+
+  web:
+      build:
+        context: .
+        network: host
+      container_name: hr_streamlit
+      ports:
+        - "8501:8501"
+      depends_on:
+        - mongodb
+      extra_hosts:
+        - "host.docker.internal:host-gateway" 
+
+volumes:
+  mongo_data:

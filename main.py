@@ -19,8 +19,14 @@ import ollama
 import streamlit as st
 import hashlib
 
+# Variables
+MONGO_URL = "mongodb://mongodb:27017/"
+OLLAMA_BASE_URL = "http://host.docker.internal:11434"
+DB_NAME = "hr_buddy_db"
+PDF_PATH = "rag_source/nasscom-hr-manual-2016.pdf"
+
 # Streamlit webpage Setup
-st.set_page_config(page_title="HR Buddy", page_icon="🤖")
+st.set_page_config(page_title="HR Buddy")
 st.title("HR Policy Assistant")
 
 # Cached Setup for loading model and the database
@@ -33,7 +39,7 @@ def initialize_backend():
     
     # Connecting to default local MongoDB Port
     print("[INFO] Connecting to local MongoDB...")
-    client = MongoClient("mongodb://localhost:27017/")
+    client = MongoClient(MONGO_URL)
 
     # Retrieve Memory Database
     db = client["hr_assistant"]
@@ -42,7 +48,7 @@ def initialize_backend():
     
     # Load and Chunk the Data
     print("[INFO] Reading HR Policy PDF with PyMuPDF...")
-    loader = PyMuPDFLoader("rag_source/nasscom-hr-manual-2016.pdf") 
+    loader = PyMuPDFLoader(PDF_PATH) 
     pages = loader.load()
 
     # Break the dense PDF into small, 1000-character chunks
@@ -53,7 +59,10 @@ def initialize_backend():
     print("[INFO] Initializing vector embeddings. This might take a second...")
 
     # Embed and Store in Vector DB
-    embeddings = OllamaEmbeddings(model="nomic-embed-text")
+    embeddings = OllamaEmbeddings(model="nomic-embed-text",
+                                  base_url=OLLAMA_BASE_URL
+                                  )
+    
     vectorstore = Chroma.from_documents(documents=chunks, embedding=embeddings)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
     
@@ -176,7 +185,8 @@ if user_input := st.chat_input("Ask a question about HR policies..."):
     with st.chat_message("assistant"):
 
         # Generate the answer using Llama 3.2
-        response = ollama.chat(model='llama3.2', messages=[{'role': 'user', 'content': rag_prompt}])
+        ollama_client = ollama.Client(host=OLLAMA_BASE_URL)
+        response = ollama_client.chat(model='llama3.2', messages=[{'role': 'user', 'content': rag_prompt}])
         ai_answer = response['message']['content']
         st.markdown(ai_answer)
         
