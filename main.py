@@ -185,10 +185,17 @@ if user_input := st.chat_input("Ask a question about HR policies..."):
     with st.chat_message("assistant"):
 
         # Generate the answer using Llama 3.2
+
+        # Generate the answer using Llama 3.2 (with streaming)
         ollama_client = ollama.Client(host=OLLAMA_BASE_URL)
-        response = ollama_client.chat(model='llama3.2', messages=[{'role': 'user', 'content': rag_prompt}])
-        ai_answer = response['message']['content']
-        st.markdown(ai_answer)
+        response_stream = ollama_client.chat(model='llama3.2', messages=[{'role': 'user', 'content': rag_prompt}], stream=True)
+        
+        # Typing out word by word
+        def stream_parser(stream):
+            for chunk in stream:
+                yield chunk['message']['content']
+                
+        ai_answer = st.write_stream(stream_parser(response_stream))
         
     st.session_state.messages.append({"role": "assistant", "content": ai_answer})
     
