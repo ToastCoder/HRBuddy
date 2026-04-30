@@ -5,19 +5,20 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - mongo_data:/data/db 
+      - mongo_data:/data/db
+    command: mongod --quiet --logpath /dev/null
 
   web:
-      build:
-        context: .
-        network: host
-      container_name: hr_streamlit
-      ports:
-        - "8501:8501"
-      depends_on:
-        - mongodb
-      extra_hosts:
-        - "host.docker.internal:host-gateway" 
+    build:
+      context: .
+      network: host
+    container_name: hr_streamlit
+    ports:
+      - "8501:8501"
+    depends_on:
+      - mongodb
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   mongo_data:
