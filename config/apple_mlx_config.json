@@ -1,0 +1,20 @@
+{
+    "app_name": "HRBuddy (MLX Optimized)",
+    "llm": {
+        "provider": "ollama",
+        "model": "llama3.2",
+        "acceleration": "mlx",
+        "temperature": 0.1
+    },
+    "vector_store": {
+        "db": "mongodb",
+        "uri": "mongodb://localhost:27017",
+        "collection": "hr_policy_vectors",
+        "embedding_model": "nomic-embed-text"
+    },
+    "features": {
+        "enable_vision": true,
+        "image_extraction": "pymupdf",
+        "ocr_engine": "tesseract"
+    }
+}
