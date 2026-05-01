@@ -1,7 +1,12 @@
+# HRBuddy
+# core/config_loader.py
+
+# Required Libraries
 import json
 import os
 from core.logger import log
 
+# Load configuration
 def load_config():
     """
     Reads the JSON config path from the environment variable 
@@ -10,10 +15,13 @@ def load_config():
     # This variable is set in your run.sh based on your laptop (M5 vs Kubuntu)
     config_path = os.getenv("HRBUDDY_CONFIG", "config/apple_mlx_config.json")
     
+    # Load configuration from JSON file
     try:
         with open(config_path, 'r') as f:
             config = json.load(f)
             config["ollama_base_url"] = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            
+            # Log configuration
             log.info(f"Configuration loaded from {config_path}")
             return config
     except FileNotFoundError:
@@ -23,4 +31,6 @@ def load_config():
         log.error(f"Unexpected error loading config: {e}")
         return {}
 
+
+# Load configuration
 cfg = load_config()

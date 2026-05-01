@@ -7,6 +7,10 @@ import sys
 
 # Getting the logger
 def get_logger(name="HRBuddy"):
+    '''
+    Returns a logger instance with the specified name.
+    '''
+    
     logger = logging.getLogger(name)
     
     # Checking if the logger has any handlers

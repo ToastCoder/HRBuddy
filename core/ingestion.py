@@ -8,6 +8,7 @@ from core.config_loader import cfg
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+# Main function to process PDF
 def process_pdf(file_path):
     """
     The main ingestion worker.
@@ -15,15 +16,17 @@ def process_pdf(file_path):
     """
     log.info(f"[Ingestion] Starting PDF processing: {file_path}")
 
-    # 1. Text Extraction using your preferred Langchain Loader
+    # Text Extraction
     loader = PyMuPDFLoader(file_path)
     pages = loader.load()
 
-    # 2. Chunking
+    # Chunking
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=cfg["ingestion"].get("chunk_size", 1000), 
         chunk_overlap=cfg["ingestion"].get("chunk_overlap", 150)
     )
+
+    # Split PDF into chunks
     chunks = text_splitter.split_documents(pages)
     
     log.info(f"[Ingestion] Processing complete: {len(chunks)} text segments created.")

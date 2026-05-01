@@ -1,9 +1,13 @@
 #!/bin/bash
 
+# HRBuddy
+# run.sh
+
 set -e # Exit on error
 
 # Detecting the Operating System
 if [[ "$OSTYPE" == "darwin"* ]]; then
+
     # Ensure Docker is actually running before trying to connect
     if ! docker info > /dev/null 2>&1; then
         echo "[INFO] Docker Desktop is not running. Launching it now..."
@@ -11,6 +15,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "Please wait for Docker to start, then re-run this script."
         exit 1
     fi
+
     # Set the host variable to the standard macOS socket location
     export DOCKER_HOST="unix:///var/run/docker.sock"
     export HRBUDDY_CONFIG="config/apple_mlx_config.json"

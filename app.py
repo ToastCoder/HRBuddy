@@ -1,51 +1,56 @@
+# HRBuddy
+# app.py
+
+# Imported libraries
 import streamlit as st
 import hashlib
 import datetime
 from pymongo import MongoClient
-
-# --- MODULAR IMPORTS ---
 from core.config_loader import cfg
 from core.logger import log
 from core.ingestion import process_pdf
 from core.rag_engine import HRBuddyEngine
 
-# Setup page using JSON configuration
+# Streamlit UI Configuration
 st.set_page_config(page_title=cfg.get("app_name", "HR Buddy"), layout="wide")
 st.title(cfg.get("app_name", "HR Policy Assistant"))
 
-# --- BACKEND INITIALIZATION ---
+# Backend Initialization
 @st.cache_resource
 def initialize_system():
     log.info(f"System boot sequence initiated for {cfg['app_name']}...")
     
-    # 1. Connect to MongoDB (URI from JSON)
+    # Connect to MongoDB
     client = MongoClient(cfg["vector_store"]["uri"])
     db = client[cfg.get("db_name", "hr_buddy_db")]
     
-    # 2. Process PDF (Path from JSON)
+    # Process PDF
     PDF_PATH = cfg["ingestion"]["pdf_path"]
     chunks = process_pdf(PDF_PATH)
     
-    # 3. Initialize RAG Engine
+    # Initialize RAG Engine
     engine = HRBuddyEngine(chunks)
     
     return db["chat_history"], db["users"], engine
 
 chat_collection, users_collection, engine = initialize_system()
 
-# --- LOGIN SYSTEM ---
+# Login System
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
+# Login Page
 if not st.session_state.logged_in:
-    st.sidebar.subheader("🔒 Authentication")
+    st.sidebar.subheader("Login or Register")
     user = st.sidebar.text_input("Username")
     pwd = st.sidebar.text_input("Password", type="password")
     
+    # Login or Register
     if st.sidebar.button("Login/Register"):
         pwd_hash = hashlib.sha256(pwd.encode()).hexdigest()
         user_record = users_collection.find_one({"username": user})
         
+        # Check if user exists
         if user_record:
             if user_record["password_hash"] == pwd_hash:
                 st.session_state.logged_in = True
@@ -53,26 +58,33 @@ if not st.session_state.logged_in:
                 st.rerun()
             else:
                 st.sidebar.error("Invalid password")
+        
+        # Create new user
         else:
             users_collection.insert_one({"username": user, "password_hash": pwd_hash})
             st.session_state.logged_in = True
             st.session_state.user_id = user
             st.rerun()
+
+    # Stop the app if not logged in
     st.stop()
 
-# --- MAIN CHAT INTERFACE ---
+# Chat Interface
 SESSION_ID = st.session_state.user_id
 st.sidebar.success(f"Active Session: {SESSION_ID}")
 
+# Initialize Chat History
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
     # Sync with MongoDB
     past_msgs = chat_collection.find({"session_id": SESSION_ID}).sort("timestamp", 1)
+
     for m in past_msgs:
         role = "user" if m["role"] == "User" else "assistant"
         st.session_state.messages.append({"role": role, "content": m["content"]})
 
-# Display History
+# Display Chat History
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
@@ -81,8 +93,11 @@ for msg in st.session_state.messages:
 if user_input := st.chat_input("Ask about company policy..."):
     log.info(f"User Query: {user_input}")
     
+    # Display user input
     with st.chat_message("user"):
         st.markdown(user_input)
+    
+    # Add user input to chat history
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     # Get Chat History for Context (Last 5 messages)
@@ -93,15 +108,17 @@ if user_input := st.chat_input("Ask about company policy..."):
     with st.chat_message("assistant"):
         stream = engine.generate_response(user_input, history_text, SESSION_ID)
         
+        # Stream response
         def stream_parser(s):
             for chunk in s:
                 yield chunk['message']['content']
         
+        # Display response
         ai_response = st.write_stream(stream_parser(stream))
     
     st.session_state.messages.append({"role": "assistant", "content": ai_response})
 
-    # Save to Mongo
+    # Save to MongoDB
     chat_collection.insert_many([
         {"session_id": SESSION_ID, "role": "User", "content": user_input, "timestamp": datetime.datetime.now()},
         {"session_id": SESSION_ID, "role": "AI", "content": ai_response, "timestamp": datetime.datetime.now()}
