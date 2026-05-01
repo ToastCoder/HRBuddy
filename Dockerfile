@@ -1,25 +1,29 @@
-# Use a lightweight Python base image
-FROM python:3.10-slim
+# Use a slim version of Python 3.11/3.12
+FROM python:3.11-slim
 
-# Set the working directory inside the container
+# Set environment variables for better Python performance in Docker
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Install system dependencies (required for PyMuPDF and other tools)
+# Install system dependencies for PDF processing (Poppler/Tesseract)
 RUN apt-get update && apt-get install -y \
     build-essential \
+    curl \
+    libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only the requirements first to leverage Docker caching
+# Copy only requirements first to leverage Docker cache
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --default-timeout=1000 --retries 5 -i https://pypi.org/simple/ --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
-
-# Copy the rest of your application code
+# Copy the entire project structure
+# This includes app.py, core/, config/, and rag_source/
 COPY . .
 
-# Expose the port Streamlit runs on
+# Streamlit uses port 8501 by default
 EXPOSE 8501
 
-# Command to run the application
-CMD ["streamlit", "run", "main.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# The command now points to app.py
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]

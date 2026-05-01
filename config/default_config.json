@@ -4,17 +4,19 @@
         "provider": "ollama",
         "model": "llama3.2",
         "acceleration": "cpu",
-        "temperature": 0.1
+        "temperature": 0.1,
+        "context_window": 4096
     },
     "vector_store": {
         "db": "mongodb",
-        "uri": "mongodb://localhost:27017",
+        "uri": "mongodb://mongodb:27017",
         "collection": "hr_policy_vectors",
-        "embedding_model": "nomic-embed-text"
+        "embedding_model": "nomic-embed-text",
+        "search_top_k": 2
     },
-    "features": {
-        "enable_vision": false,
-        "image_extraction": "none",
-        "ocr_engine": "tesseract"
+    "ingestion": {
+        "pdf_path": "rag_source/nasscom-hr-manual-2016.pdf",
+        "chunk_size": 1000,
+        "chunk_overlap": 150
     }
 }

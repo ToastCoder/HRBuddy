@@ -1,13 +1,19 @@
-fastapi
-uvicorn
-ollama
-chromadb
+# UI Framework
+streamlit
+
+# PDF Processing
+pymupdf
+pillow
+
+# AI & RAG Orchestration
 langchain
 langchain-community
-langchain-text-splitters
 langchain-ollama
-pymupdf
-protobuf==3.20.3
+langchain-text-splitters
+chromadb
+
+# Database
 pymongo
-streamlit
-torchvision
+
+# LLM Interface
+ollama

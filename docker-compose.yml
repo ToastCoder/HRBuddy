@@ -1,24 +1,30 @@
+version: '3.8'
+
 services:
+  hr_app:
+    build: .
+    container_name: hrbuddy
+    ports:
+      - "8501:8501"
+    environment:
+      # This points to the JSON we set in run.sh
+      - HRBUDDY_CONFIG=${HRBUDDY_CONFIG:-config/default_config.json}
+      # Crucial: This tells the container how to find Ollama on your Mac
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    volumes:
+      - .:/app
+    depends_on:
+      - mongodb
+
   mongodb:
     image: mongo:6.0
     container_name: hr_mongodb
+    # Silent mode as we discussed earlier
+    command: mongod --quiet --logpath /dev/null
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
-    command: mongod --quiet --logpath /dev/null
-
-  web:
-    build:
-      context: .
-      network: host
-    container_name: hr_streamlit
-    ports:
-      - "8501:8501"
-    depends_on:
-      - mongodb
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
 volumes:
   mongo_data:

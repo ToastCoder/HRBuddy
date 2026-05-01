@@ -13,9 +13,11 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     fi
     # Set the host variable to the standard macOS socket location
     export DOCKER_HOST="unix:///var/run/docker.sock"
+    export HRBUDDY_CONFIG="config/apple_mlx_config.json"
 
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     OS="linux"
+    export HRBUDDY_CONFIG="config/default_config.json"
     echo "[INFO] Running on Linux"
 else
     echo "[ERROR] Unsupported OS. Exiting."
